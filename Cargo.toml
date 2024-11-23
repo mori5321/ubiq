@@ -1,6 +1,12 @@
-[package]
-name = "ubiq"
+[workspace]
+members = ["cli", "builder"]
+resolver = "2"
+
+[workspace.package]
 version = "0.1.0"
 edition = "2021"
+authors = ["mori5321"]
+license = "MIT"
 
-[dependencies]
+
+[workspace.dependencies]
