@@ -18,12 +18,12 @@ impl Builder {
     pub fn run(&self) -> String {
         // 1. ファイルの読み込み
 
+        // 2. 全ファイルのFrontmatter--Titleを取得する
         let parsed = front_matter::parse::<Headers>(DUMMY).unwrap();
         println!("{:?}", parsed.headers.title);
         println!("{:?}", parsed.body);
 
         // 
-        // 2. 全ファイルのFrontmatter--Titleを取得する
         //
         // 3. TitleをValidationする(同名は許可しない)
         //

@@ -8,6 +8,20 @@ pub enum FrontMatterError {
     InvalidYaml(serde_yaml::Error),
 }
 
+impl PartialEq for FrontMatterError {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (FrontMatterError::MissingBeginningLine, FrontMatterError::MissingBeginningLine) => {
+                true
+            }
+            (FrontMatterError::MissingEndingLine, FrontMatterError::MissingEndingLine) => true,
+            (FrontMatterError::InvalidYaml(_), FrontMatterError::InvalidYaml(_)) => true,
+            _ => false,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub struct Parsed<'a, T: serde::de::DeserializeOwned> {
     pub headers: T,
     pub body: &'a str,
@@ -53,18 +67,98 @@ mod tests {
     }
 
     #[test]
-    fn parse_valid_frontmatter() {
-        let input = r#"---
-title: Hello World
----
-This is John
-"#;
-
-        let Parsed { headers, body } = parse::<Headers>(input).unwrap();
-
-        assert_eq!(headers.title, "Hello World");
-        assert_eq!(body, "This is John\n");
+    fn parse_with_missing_beginning_line() {
+        let text = "";
+        let result = parse::<Headers>(text);
+        assert!(matches!(result, Err(FrontMatterError::MissingBeginningLine)));
     }
 
-    // TODO: write invalid cases
+    #[test]
+    fn parse_with_missing_ending_line() {
+        let text = "---\n";
+        let result = parse::<Headers>(text);
+        assert!(matches!(result, Err(FrontMatterError::MissingEndingLine)));
+    }
+
+    #[test]
+    fn parse_with_missing_ending_line_crlf() {
+        let text = "---\r\n";
+        let result = parse::<Headers>(text);
+        assert!(matches!(result, Err(FrontMatterError::MissingEndingLine)));
+    }
+
+    #[test]
+    fn parse_with_empty_frontmatter() {
+        let text = "---\n---\n";
+        let result = parse::<Headers>(text);
+        assert!(matches!(result, Err(FrontMatterError::InvalidYaml(_))));
+    }
+
+    #[test]
+    fn parse_with_empty_frontmatter_crlf() {
+        let text = "---\r\n---\r\n";
+        let result = parse::<Headers>(text);
+        assert!(matches!(result, Err(FrontMatterError::InvalidYaml(_))));
+    }
+
+    #[test]
+    fn parse_with_missing_known_field() {
+        let text = "---\ntttttitle: dummy_title\n---\n";
+        let result = parse::<Headers>(text);
+        assert!(matches!(result, Err(FrontMatterError::InvalidYaml(_))));
+    }
+
+    #[test]
+    fn parse_with_missing_known_field_crlf() {
+        let text = "---\r\nttttitle: dummy_title\r\n---\r\n";
+        let result = parse::<Headers>(text);
+        assert!(matches!(result, Err(FrontMatterError::InvalidYaml(_))));
+    }
+
+    #[test]
+    fn parse_with_unknown_field() {
+        let text = "---\ndate: 2000-01-01\ntitle: dummy_title\n---\n";
+        let result = parse::<Headers>(text);
+        assert!(matches!(result, Ok(_)));
+    }
+
+    #[test]
+    fn parse_with_unknown_field_crlf() {
+        let text = "---\r\ndate: 2000-01-01\r\ntitle: dummy_title\r\n---\r\n";
+        let result = parse::<Headers>(text);
+        assert!(matches!(result, Ok(_)));
+    }
+
+    #[test]
+    fn parse_with_empty_known_field() {
+        let text = "---\ntitle:\n---\n";
+        let result = parse::<Headers>(text).unwrap();
+        
+        assert_eq!(result.headers.title, "");
+        assert_eq!(result.body, ""); 
+    }
+    
+    #[test]
+    fn parse_with_empty_known_field_crlf() {
+        let text = "---\r\ntitle:\r\n---\r\n";
+        let result = parse::<Headers>(text).unwrap();
+
+        assert_eq!(result.headers.title, "");
+        assert_eq!(result.body, "");
+    }
+
+    #[test]
+    fn parse_with_valid_frontmatter() {
+        let text = "---\ntitle: dummy_title---\ndummy_body";
+        let result = parse::<Headers>(text).unwrap();
+        assert_eq!(result.headers.title, "dummy_title");
+        assert_eq!(result.body, "dummy_body");
+    }
+    #[test]
+    fn parse_with_valid_frontmatter_crlf() {
+        let text = "---\r\ntitle: dummy_title---\r\ndummy_body";
+        let result = parse::<Headers>(text).unwrap();
+        assert_eq!(result.headers.title, "dummy_title");
+        assert_eq!(result.body, "dummy_body");
+    }
 }
